@@ -16,6 +16,17 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+## Booking confirmation emails
+
+When an admin confirms a reservation, the app sends the customer a confirmation email through [Resend](https://resend.com). Add these server-only values to `.env` (and to your deployment environment):
+
+```bash
+RESEND_API_KEY=re_...
+BOOKING_EMAIL_FROM="Lumiere Salon <bookings@your-verified-domain.com>"
+```
+
+The `BOOKING_EMAIL_FROM` domain must be verified in Resend. Without these values, bookings can still be confirmed and the dashboard will indicate that email delivery is not configured.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

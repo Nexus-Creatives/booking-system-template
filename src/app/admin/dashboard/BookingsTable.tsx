@@ -1,7 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { createClient } from '@/utils/supabase/client'
+import { useState } from 'react'
 
 type Booking = {
   id: string
@@ -11,7 +10,10 @@ type Booking = {
   booking_date: string
   time_slot: string
   status: 'pending' | 'confirmed' | 'cancelled' | 'completed'
-  services: { name: string; duration_minutes: number; price: number }[] | null
+  services:
+    | { name: string; duration_minutes: number; price: number }
+    | { name: string; duration_minutes: number; price: number }[]
+    | null
 }
 
 const FILTERS = ['all', 'pending', 'confirmed', 'completed', 'cancelled'] as const
@@ -24,7 +26,7 @@ const STATUS_STYLES: Record<Booking['status'], string> = {
 }
 
 function formatService(booking: Booking) {
-  const service = booking.services?.[0]
+  const service = Array.isArray(booking.services) ? booking.services[0] : booking.services
   if (!service) return 'Service removed'
 
   return `${service.name} - PHP ${service.price.toLocaleString('en-PH')}`
@@ -34,16 +36,32 @@ export default function BookingsTable({ initialBookings }: { initialBookings: Bo
   const [bookings, setBookings] = useState(initialBookings)
   const [filter, setFilter] = useState<'all' | Booking['status']>('all')
   const [updatingId, setUpdatingId] = useState<string | null>(null)
-
-  const supabase = useMemo(() => createClient(), [])
+  const [notice, setNotice] = useState<string | null>(null)
 
   const updateStatus = async (id: string, status: Booking['status']) => {
     setUpdatingId(id)
+    setNotice(null)
 
-    const { error } = await supabase.from('bookings').update({ status }).eq('id', id)
+    const response = await fetch('/api/admin/bookings/status', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status }),
+    })
+    const result = await response.json().catch(() => null)
 
-    if (!error) {
+    if (response.ok) {
       setBookings((prev) => prev.map((b) => (b.id === id ? { ...b, status } : b)))
+      if (status === 'confirmed') {
+        setNotice(
+          result?.emailSent
+            ? 'Booking confirmed and confirmation email sent.'
+            : result?.emailConfigured === false
+              ? 'Booking confirmed. Add email settings to send confirmation emails.'
+              : `Booking confirmed, but the confirmation email could not be sent. ${result?.emailError ?? ''}`
+        )
+      }
+    } else {
+      setNotice(result?.error ?? 'Could not update the booking. Please try again.')
     }
 
     setUpdatingId(null)
@@ -68,6 +86,12 @@ export default function BookingsTable({ initialBookings }: { initialBookings: Bo
           </button>
         ))}
       </div>
+
+      {notice && (
+        <p className="mb-4 rounded-xl border border-[var(--copper)]/30 bg-[var(--copper)]/10 px-4 py-3 text-sm text-[var(--ivory)]">
+          {notice}
+        </p>
+      )}
 
       {filtered.length === 0 ? (
         <div className="rounded-2xl border border-[var(--ivory)]/10 bg-[var(--ivory)]/[0.04] px-5 py-8 text-center text-sm text-[var(--ivory-dim)]">
